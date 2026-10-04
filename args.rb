@@ -19,6 +19,9 @@ def handle_args()
     opts.on("-mMODE", "--mode=MODE",       "Set mode of operation") do |m|
       $options[:m] = m
     end
+    opts.on("-s", "--skip SOURCES", Array, "Skip sources, comma separated (dbi-igs, protestkit)") do |s|
+      $options[:s] = s.map(&:downcase)
+    end
   end.parse!
 
   if $options[:m] == "index"

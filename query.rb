@@ -34,6 +34,15 @@ PHARM = [
   "Human Drugs", "Drug Indication", "Drug Classes", "Clinical Trials", "Therapeutic Uses", "Drug Warnings", "Reported Fatal Dose", "Pharmacodynamics", "MeSH Pharmacological Classification", "FDA Pharmacological Classification", "Pharmacological Classes", "ATC Code"
 ]
 
+# Sources that are known to go offline: skippable with --skip, and a failure
+# only costs that source's data.
+def merge_source(record, name)
+  return if skip?(name)
+  record.merge!(yield || {})
+rescue => e
+  puts "Skipping #{name}: #{e.message}"
+end
+
 def try(root, compound, prefixes, postfix, unii, key, indepth, salt)
   record = Hash.new
   record['UNII'] = unii if unii != nil
@@ -75,8 +84,8 @@ def try(root, compound, prefixes, postfix, unii, key, indepth, salt)
     record.merge!(query_mesh record)
     record.merge!(query_reddit record)
     record.merge!(query_experiences record)
-    record.merge!(query_protestkit record)
-    record.merge!(query_dbi_igs record)
+    merge_source(record, "protestkit") { query_protestkit record }
+    merge_source(record, "dbi-igs") { query_dbi_igs record }
   end
 
   mpca = ""

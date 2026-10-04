@@ -129,30 +129,10 @@ if $options[:m] == "search"
     #query($compounds[0], $compounds[0], "")
   end
 elsif $options[:m] == "index"
-  list_content = File.read('classes.json')
-  $vclasses = []
-  if list_content != nil
-    $vclasses = JSON.parse(list_content)["VClasses"]
-  end
-  if ARGV.empty?
-    for vclass in $vclasses
-      for iclass in vclass['Classes']
-        puts "Indexing: #{iclass}"
-        index_class(vclass['Path'], vclass['JName'], iclass)
-      end
-    end
+  if $to_index[1] != nil && $to_index[2] != nil
+    index_class($to_index[2], $to_index[1], $to_index[0])
   else
-    mpath = $to_index[2]
-    mclass = $to_index[1]
-    for vclass in $vclasses
-      for iclass in vclass['Classes']
-        if iclass == $to_index[0]
-          mpath = vclass['Path']
-          mclass = vclass['JName']
-        end
-      end
-    end
-    index_class(mpath, mclass, $to_index[0])
+    index_classes($to_index[0])
   end
 elsif $options[:m] == "init"
   generate_icon_css()
