@@ -29,7 +29,7 @@ def handle_args()
     #  puts "Missing indexclass argument"
     #  exit
     else
-      $to_index = [ ARGV[0], ARGV[1], ARGV[2] ]
+      $to_index = [ ARGV.join(" ") ]
     end
   end
 

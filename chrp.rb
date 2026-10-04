@@ -129,11 +129,7 @@ if $options[:m] == "search"
     #query($compounds[0], $compounds[0], "")
   end
 elsif $options[:m] == "index"
-  if $to_index[1] != nil && $to_index[2] != nil
-    index_class($to_index[2], $to_index[1], $to_index[0])
-  else
-    index_classes($to_index[0])
-  end
+  index_classes($to_index[0])
 elsif $options[:m] == "init"
   generate_icon_css()
   #generate_substitutions()

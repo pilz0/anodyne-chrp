@@ -60,6 +60,25 @@ def load_db_substances
   db.execute("SELECT data_json FROM substances").map { |row| JSON.parse(row[0]) }
 end
 
+# Pharmacological classes are maintained by hand in index/substance.json and
+# only reach the db when a substance is searched again, so the list there wins
+# and substances that were never searched are still indexed.
+def load_index_substances
+  records = load_db_substances
+  return records unless File.exist?('index/substance.json')
+  by_title = records.to_h { |record| [record["Title"].to_s.downcase, record] }
+  for ssub in JSON.parse(File.read('index/substance.json'))["Entries"]
+    next if ssub["Title"] == nil || !ssub["Classes"].is_a?(Array)
+    record = by_title[ssub["Title"].downcase]
+    if record == nil
+      record = { "Title" => ssub["Title"], "Abbreviation" => ssub["Abr"] }
+      records << record
+    end
+    record["Classes"] = ssub["Classes"]
+  end
+  records
+end
+
 def class_names(record, vclass)
   record[vclass].is_a?(Array) ? record[vclass].map { |c| c.to_s.downcase } : []
 end
@@ -70,15 +89,15 @@ def class_index_file(pclass, iclass)
   File.exist?(spaced) ? spaced : "#{pclass}/#{name.gsub(/\s+/, '_')}.json"
 end
 
-# Merges the substances in db.sqlite that list iclass under vclass into
-# #{pclass}/#{iclass}.json. Entries that are not in the db are kept, so a
-# partial db never empties an index.
-def index_class(pclass, vclass, iclass, records = load_db_substances)
+# Merges the substances that list iclass under vclass into
+# #{pclass}/#{iclass}.json. Existing entries are kept, so a partial db never
+# empties an index.
+def index_class(pclass, vclass, iclass, records = load_index_substances)
   iclass = iclass.downcase
   members = records.select { |record| class_names(record, vclass).include?(iclass) }
   file = class_index_file(pclass, iclass)
   if members.empty?
-    puts "No substances in db.sqlite for #{file}, left as is"
+    puts "No substances found for #{file}, left as is"
     return false
   end
 
@@ -86,7 +105,7 @@ def index_class(pclass, vclass, iclass, records = load_db_substances)
   index['Name'] ||= iclass
   index['Entries'] ||= []
   for record in members
-    member = { "Title" => record["Title"], "Abr" => record["Abbreviation"], "MW" => record["MolecularWeight"] }
+    member = { "Title" => record["Title"], "Abr" => record["Abbreviation"], "MW" => record["MolecularWeight"] }.compact
     first = index['First']
     if first.is_a?(Hash) && first['Title'].to_s.downcase == member["Title"].downcase
       first.merge!(member)
@@ -96,14 +115,14 @@ def index_class(pclass, vclass, iclass, records = load_db_substances)
     entry ? entry.merge!(member) : index['Entries'] << member
   end
   File.write(file, JSON.pretty_generate(index))
-  puts "Indexed #{file}: #{members.length} from db, #{index['Entries'].length} entries"
+  puts "Indexed #{file}: #{members.length} matched, #{index['Entries'].length} entries"
   true
 end
 
 # name may be a class, or a substance whose classes should be indexed.
-# Without a name every class that a substance in the db belongs to is indexed.
+# Without a name every class that a substance belongs to is indexed.
 def index_classes(name = nil)
-  records = load_db_substances
+  records = load_index_substances
   targets = []
   for vclass in VCLASSES
     known = records.flat_map { |record| class_names(record, vclass["JName"]) }.uniq
@@ -119,7 +138,7 @@ def index_classes(name = nil)
       targets += class_names(substance, vclass["JName"]).map { |iclass| [vclass, iclass] } if substance
     end
   end
-  puts "Nothing to index for #{name}: not a class, and not a substance in db.sqlite with classes" if targets.empty? && name != nil
+  puts "Nothing to index for #{name}: not a class, and not a substance with classes" if targets.empty? && name != nil
   for vclass, iclass in targets
     index_class(vclass["Path"], vclass["JName"], iclass, records)
   end

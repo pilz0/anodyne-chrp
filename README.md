@@ -20,7 +20,7 @@ ruby /usr/src/chrp/chrp.rb --cache=/tmp/chrp --mode=search EPT
 # aggregate substance data after clearing cache
 ruby /usr/src/chrp/chrp.rb --cache=/tmp/chrp --mode=research EPT
 
-# update a class index (class/ or substituted/) from db.sqlite
+# update a class index (class/ or substituted/)
 ruby /usr/src/chrp/chrp.rb --mode=index Phenethylamine
 
 # update the class indexes a substance belongs to
