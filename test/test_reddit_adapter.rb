@@ -25,7 +25,7 @@ if reports && reports.length > 0
     puts "   Substances detected: #{report["substances"].join(', ')}"
   end
 else
-  puts "\nFAILED: No reports found. Check if reddit_test.json is in the current directory."
+  puts "\nFAILED: No reports found. Check if assets/reddit_test.json exists."
 end
 
 puts "\n--- Test Complete ---"

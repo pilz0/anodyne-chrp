@@ -51,6 +51,7 @@
         devShells.default =
           pkgs.mkShell {
             packages = ( 
+              ([ anodyne-chrp ]) ++
               (with pkgs; [
               svgo
               ruby_3_3
