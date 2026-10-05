@@ -8,7 +8,7 @@ require "nokogiri"
 require "uri"
 
 EROWID_BASE_URL = "https://www.erowid.org/experiences/"
-SUBSTANCES_FILE = "/usr/src/chrp/erowid_substances.json"
+SUBSTANCES_FILE = File.expand_path("../../assets/erowid_substances.json", __dir__)
 
 HEADERS = {
   "User-Agent" => "Mozilla/5.0",

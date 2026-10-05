@@ -1,4 +1,5 @@
 require 'open3'
+require 'tmpdir'
 
 require_relative 'config'
 require_relative 'forms'
@@ -61,7 +62,7 @@ def generate_structure(record, mpca, subst)
   else
     mpc += " -o \"structure/#{title.downcase.gsub(/\s+/, '_')}.svg\""
     if subst
-      cffj = "/tmp/molpic_" + Digest::MD5.hexdigest(mpc) + ".json"
+      cffj = Dir.tmpdir + "/molpic_" + Digest::MD5.hexdigest(mpc) + ".json"
       mpc += " -d \"#{cffj}\""
     end
     #mpc += " -j \"#{vars_file}\""

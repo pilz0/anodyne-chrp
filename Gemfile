@@ -5,3 +5,8 @@ gem "httparty"
 # (Ruby 3.0 on Windows). 1.18+ only ships x64-mingw-ucrt and would build from source.
 gem "nokogiri", "~> 1.17.2"
 gem "svg_optimizer"
+gem "sqlite3"
+gem "builder"
+gem "commonchemistry"
+
+gemspec

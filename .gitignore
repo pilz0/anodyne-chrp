@@ -1,0 +1,5 @@
+vendor
+.bundle
+.devenv
+__pycache__
+result

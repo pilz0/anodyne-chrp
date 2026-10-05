@@ -1,4 +1,4 @@
-require_relative 'reddit'
+require_relative '../lib/chrp/reddit'
 require 'json'
 
 # Mock record for testing

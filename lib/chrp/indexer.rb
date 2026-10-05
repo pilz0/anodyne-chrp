@@ -87,7 +87,7 @@ def index_class(pclass, vclass, iclass)
           full_data["Structure"] = optimized
           puts JSON.pretty_generate(full_data)
           dump_to_db(db, full_data)
-          FileUtils.cp(svg_path, "/home/xea/jsonfsstructure")
+          FileUtils.cp(svg_path, Dir.home + "/jsonfsstructure")
           FileUtils.rm(svg_path)
         else
           #for salt in full_data["FullSalts"]
@@ -97,7 +97,7 @@ def index_class(pclass, vclass, iclass)
           #  full_data["SaltStructuresBase64"] += [ encoded_svg ]
           #  puts JSON.pretty_generate(full_data)
           #  #dump_to_db(db, full_data)
-          #  FileUtils.cp(svg_path, "/home/xea/jsonfsstructure")
+          #  FileUtils.cp(svg_path, Dir.home + "/jsonfsstructure")
           #end
         end
       end
@@ -150,9 +150,9 @@ def index_class(pclass, vclass, iclass)
       if full_data
         puts JSON.pretty_generate(full_data)
         dump_to_db(db, full_data)
-        FileUtils.cp_r(file_path, "/home/xea/jsonfs")
+        FileUtils.cp_r(file_path, Dir.home + "/jsonfs")
         FileUtils.rm_r(file_path)
-        puts "cp " + file_path + "/home/xea/jsonfs"
+        puts "cp " + file_path + Dir.home + "/jsonfs"
       end
 
       #if mods_data != nil && mods_data.key?('ChemicalClasses') && mods_data['ChemicalClasses'].include?(iclass.downcase)
