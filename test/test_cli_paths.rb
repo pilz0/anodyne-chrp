@@ -16,6 +16,12 @@ def database_path(*args, chdir:)
   out.strip
 end
 
+def molpic_option(*args, chdir:)
+  script = 'handle_args; puts $options[:molpic].inspect'
+  out, _ = Open3.capture2e(RbConfig.ruby, '-r', File.join(ROOT, 'lib/chrp/args'), '-e', script, '--', *args, chdir: chdir)
+  out.strip
+end
+
 def check(desc, ok, out = "")
   puts "#{ok ? 'ok' : 'FAILED'}: #{desc}"
   return if ok
@@ -58,4 +64,10 @@ Dir.mktmpdir do |tmp|
 
   out = database_path('--frontend', frontend, '--cache', 'cache', chdir: elsewhere)
   check("relative --cache resolves against the invocation directory", Dir.exist?(File.join(elsewhere, 'cache')) && !Dir.exist?(File.join(frontend, 'cache')), out)
+
+  out = molpic_option('--frontend', frontend, '--molpic', 'molpic --fast', chdir: elsewhere)
+  check("--molpic sets the molpic command", out == '"molpic --fast"', out)
+
+  out = molpic_option('--frontend', frontend, chdir: elsewhere)
+  check("molpic command is unset by default", out == 'nil', out)
 end

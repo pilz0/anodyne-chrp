@@ -30,6 +30,9 @@ def handle_args()
     opts.on("-s", "--skip SOURCES", Array, "Skip sources, comma separated (dbi-igs, protestkit)") do |s|
       $options[:s] = s.map(&:downcase)
     end
+    opts.on("--molpic COMMAND", "Set molpic command (default: java -jar molpic.jar)") do |c|
+      $options[:molpic] = c
+    end
   end.parse!
 
   if $options[:f]

@@ -14,8 +14,12 @@ def molpic_jar
   ].find { |jar| File.exist?(jar) } || "molpic/molpic.jar"
 end
 
+def molpic_command
+  $options[:molpic] || "java -jar \"#{molpic_jar}\""
+end
+
 def generate_structure(record, mpca, subst)
-  mpc = "java -jar \"#{molpic_jar}\" " + mpca
+  mpc = molpic_command + " " + mpca
   title = record["Title"]
   title = record["SaltTitle"] if record["SaltTitle"] != nil
   return record if title == nil
@@ -82,7 +86,7 @@ def generate_structure(record, mpca, subst)
   ret = system(mpc)
 
   if !ret
-    puts "Structure generation failed for #{title} (#{molpic_jar})"
+    puts "Structure generation failed for #{title} (#{molpic_command})"
     return record
   end
   svg_file = File.read( (!$options[:c].nil? && cff != nil) ? cff : "structure/#{title.downcase.gsub(/\s+/, '_')}.svg")
