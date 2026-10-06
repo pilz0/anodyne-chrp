@@ -45,15 +45,9 @@
       in
       {
         formatter = pkgs.nixfmt-tree;
-
         packages = {
           default = anodyne-chrp;
           anodyne-chrp = anodyne-chrp;
-        };
-        hydraJobs = {
-          inherit (self)
-            packages
-            ;
         };
         apps.default = flake-utils.lib.mkApp {
           drv = anodyne-chrp;
@@ -79,5 +73,9 @@
           ];
         };
       }
-    );
+    ) // {
+        hydraJobs = {
+          inherit (self) packages;
+        };
+      };
 }
