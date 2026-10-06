@@ -3,8 +3,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    systems.url = "github:nix-systems/triplet";
-    flake-utils.inputs.systems.follows = "systems";
   };
   outputs =
     {
@@ -45,10 +43,12 @@
       in
       {
         formatter = pkgs.nixfmt-tree;
+
         packages = {
           default = anodyne-chrp;
           anodyne-chrp = anodyne-chrp;
         };
+
         apps.default = flake-utils.lib.mkApp {
           drv = anodyne-chrp;
           exePath = "/bin/chrp";
@@ -73,9 +73,8 @@
           ];
         };
       }
-    ) // {
-        hydraJobs = {
+    ) // { hydraJobs = {
           inherit (self) packages;
         };
-      };
+};
 }
