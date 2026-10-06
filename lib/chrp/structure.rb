@@ -4,8 +4,18 @@ require 'tmpdir'
 require_relative 'config'
 require_relative 'forms'
 
+# molpic.jar is either in the frontend's molpic/ directory or in an
+# anodyne-molpic checkout next to chrp. Looked up on use, as --frontend
+# changes the working directory after this file is loaded.
+def molpic_jar
+  [
+    "molpic/molpic.jar",
+    File.expand_path("../../../anodyne-molpic/molpic.jar", __dir__),
+  ].find { |jar| File.exist?(jar) } || "molpic/molpic.jar"
+end
+
 def generate_structure(record, mpca, subst)
-  mpc = "java -jar molpic/molpic.jar " + mpca
+  mpc = "java -jar \"#{molpic_jar}\" " + mpca
   title = record["Title"]
   title = record["SaltTitle"] if record["SaltTitle"] != nil
   return record if title == nil
@@ -72,6 +82,7 @@ def generate_structure(record, mpca, subst)
   ret = system(mpc)
 
   if !ret
+    puts "Structure generation failed for #{title} (#{molpic_jar})"
     return record
   end
   svg_file = File.read( (!$options[:c].nil? && cff != nil) ? cff : "structure/#{title.downcase.gsub(/\s+/, '_')}.svg")

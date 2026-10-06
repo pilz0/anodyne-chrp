@@ -2,6 +2,7 @@ require 'fileutils'
 require 'sqlite3'
 require 'base64'
 require 'open3'
+require 'json'
 
 require_relative 'sql'
 
@@ -40,10 +41,14 @@ def svg_with_white_background(svg_content)
   doc.to_xml
 end
 
-def index_class(pclass, vclass, iclass)
-  index_substances = []
-  index = {} 
-  db = SQLite3::Database.new 'db.sqlite'
+# Where each kind of class index lives and which record key lists its members.
+VCLASSES = [
+  { "Path" => "class", "JName" => "Classes" },
+  { "Path" => "substituted", "JName" => "ChemicalClasses" },
+]
+
+def load_db_substances
+  db = SQLite3::Database.new $options[:d]
   db.execute <<-SQL
     CREATE TABLE IF NOT EXISTS substances (
       id INTEGER PRIMARY KEY,
@@ -52,186 +57,89 @@ def index_class(pclass, vclass, iclass)
       data_json TEXT
     );
   SQL
+  db.execute("SELECT data_json FROM substances").map { |row| JSON.parse(row[0]) }
+end
+
+# Pharmacological classes are maintained by hand in index/substance.json and
+# only reach the db when a substance is searched again, so the list there wins
+# and substances that were never searched are still indexed.
+def load_index_substances
+  records = load_db_substances
+  return records unless File.exist?('index/substance.json')
+  by_title = records.to_h { |record| [record["Title"].to_s.downcase, record] }
+  for ssub in JSON.parse(File.read('index/substance.json'))["Entries"]
+    next if ssub["Title"] == nil || !ssub["Classes"].is_a?(Array)
+    record = by_title[ssub["Title"].downcase]
+    if record == nil
+      record = { "Title" => ssub["Title"], "Abbreviation" => ssub["Abr"] }
+      records << record
+    end
+    record["Classes"] = ssub["Classes"]
+  end
+  records
+end
+
+def class_names(record, vclass)
+  record[vclass].is_a?(Array) ? record[vclass].map { |c| c.to_s.downcase } : []
+end
+
+def class_index_file(pclass, iclass)
+  name = iclass.downcase
+  spaced = "#{pclass}/#{name}.json"
+  File.exist?(spaced) ? spaced : "#{pclass}/#{name.gsub(/\s+/, '_')}.json"
+end
+
+# Merges the substances that list iclass under vclass into
+# #{pclass}/#{iclass}.json. Existing entries are kept, so a partial db never
+# empties an index.
+def index_class(pclass, vclass, iclass, records = load_index_substances)
   iclass = iclass.downcase
-  mods_data = {}
-  vars_data = {}
-  if File.exist?("#{pclass}/#{iclass.downcase}.json")
-    index_file_content = File.read("#{pclass}/#{iclass.downcase}.json")
-    index = JSON.parse(index_file_content)
+  members = records.select { |record| class_names(record, vclass).include?(iclass) }
+  file = class_index_file(pclass, iclass)
+  if members.empty?
+    puts "No substances found for #{file}, left as is"
+    return false
   end
-  index['Name'] = iclass.downcase
 
-  Dir.glob('structure/*.svg').each do |svg_path|
-    begin
-      wildtitle = Pathname(svg_path).basename.to_s.gsub("_", " ").delete_suffix(".svg")
-      next if wildtitle.start_with?("(-)-")
-      next if wildtitle.start_with?("(+)-")
-      full_data = {}
-      svg_content = File.read(svg_path)
-      optimized = optimize_svg(formated)
-      puts wildtitle
-      query_struct = <<-SQL
-        SELECT title, aliases, data_json
-        FROM substances
-        WHERE title = '#{wildtitle}' COLLATE NOCASE
-          OR EXISTS (
-              SELECT 1 FROM json_each(aliases)
-              WHERE json_each.value = '#{wildtitle}' COLLATE NOCASE
-          )
-        LIMIT 1;
-      SQL
-      db.execute(query_struct) do |row|
-        full_data = JSON.parse(row[2])
-        if wildtitle.downcase == row[0].downcase
-          full_data["SAliases"] = JSON.parse(row[1])
-          full_data["Structure"] = optimized
-          puts JSON.pretty_generate(full_data)
-          dump_to_db(db, full_data)
-          FileUtils.cp(svg_path, Dir.home + "/jsonfsstructure")
-          FileUtils.rm(svg_path)
-        else
-          #for salt in full_data["FullSalts"]
-          #  next if wildtitle.downcase != salt.downcase
-          #  full_data["SAliases"] = JSON.parse(row[1])
-          #  full_data["SaltStructure"] = [] if full_data["SaltStructure"] == nil
-          #  full_data["SaltStructuresBase64"] += [ encoded_svg ]
-          #  puts JSON.pretty_generate(full_data)
-          #  #dump_to_db(db, full_data)
-          #  FileUtils.cp(svg_path, Dir.home + "/jsonfsstructure")
-          #end
-        end
-      end
-    rescue => e
-      puts "An error occurred with file #{svg_path}: #{e.message}"
+  index = File.exist?(file) ? JSON.parse(File.read(file)) : {}
+  index['Name'] ||= iclass
+  index['Entries'] ||= []
+  for record in members
+    member = { "Title" => record["Title"], "Abr" => record["Abbreviation"], "MW" => record["MolecularWeight"] }.compact
+    first = index['First']
+    if first.is_a?(Hash) && first['Title'].to_s.downcase == member["Title"].downcase
+      first.merge!(member)
+      next
+    end
+    entry = index['Entries'].find { |e| e['Title'].to_s.downcase == member["Title"].downcase }
+    entry ? entry.merge!(member) : index['Entries'] << member
+  end
+  File.write(file, JSON.pretty_generate(index))
+  puts "Indexed #{file}: #{members.length} matched, #{index['Entries'].length} entries"
+  true
+end
+
+# name may be a class, or a substance whose classes should be indexed.
+# Without a name every class that a substance belongs to is indexed.
+def index_classes(name = nil)
+  records = load_index_substances
+  targets = []
+  for vclass in VCLASSES
+    known = records.flat_map { |record| class_names(record, vclass["JName"]) }.uniq
+    if name == nil
+      targets += known.map { |iclass| [vclass, iclass] }
+    elsif known.include?(name.downcase) || File.exist?(class_index_file(vclass["Path"], name))
+      targets << [vclass, name]
     end
   end
-  Dir.glob('substance/*').each do |file_path|
-    begin
-      title = Pathname(file_path).basename.to_s
-      mw = ""
-      abr = ""
-      full_data = nil
-      if File.exist?("#{file_path}/mods.json")
-        mods_file_content = File.read("#{file_path}/mods.json")
-        mods_data = JSON.parse(mods_file_content)
-        if mods_data != nil
-          full_data = mods_data
-        end
-        if mods_data['Title'] != nil
-          title = mods_data['Title']
-        end
-        if mods_data['MolecularWeight'] != nil
-          mw = mods_data['MolecularWeight']
-        end
-        if mods_data['Abbreviation'] != nil
-          abr = mods_data['Abbreviation']
-        end
-      end
-      if File.exist?("#{file_path}/vars.json")
-        vars_file_content = File.read("#{file_path}/vars.json")
-        vars_data = JSON.parse(vars_file_content)
-        if vars_data != nil
-          if full_data != nil
-            full_data = full_data.merge(vars_data)
-          else
-            full_data = vars_data
-          end
-        end
-        if vars_data['Title'] != nil
-          title = vars_data['Title']
-        end
-        if vars_data['MolecularWeight'] != nil
-          mw = vars_data['MolecularWeight']
-        end
-        if vars_data['Abbreviation'] != nil
-          abr = vars_data['Abbreviation']
-        end
-      end
-      if full_data
-        puts JSON.pretty_generate(full_data)
-        dump_to_db(db, full_data)
-        FileUtils.cp_r(file_path, Dir.home + "/jsonfs")
-        FileUtils.rm_r(file_path)
-        puts "cp " + file_path + Dir.home + "/jsonfs"
-      end
-
-      #if mods_data != nil && mods_data.key?('ChemicalClasses') && mods_data['ChemicalClasses'].include?(iclass.downcase)
-      if mods_data != nil && mods_data[vclass] != nil && mods_data[vclass].include?(iclass.downcase)
-        puts vclass
-        if mods_data['IsClass'] != true && mods_data[vclass].include?(iclass)
-            index_substances << { "Title": title, "MW": mw }
-            return nil
-        end
-        if index['First'].is_a?(String)
-          fstr = index['First']
-          index['First'] = {}
-          index['First']['Title'] = fstr
-        end
-        if title != nil
-          index['First']['Title'] = title
-        end
-        if abr != nil
-          index['First']['Abr'] = abr
-        end
-        if mw != nil
-          index['First']['MW'] = mw
-        end
-        #for par in mods_data['ChemicalClasses'].drop(1)
-        for par in mods_data[vclass].drop(1)
-          par_file_content = File.read("#{pclass}/#{par}.json")
-          par_data = JSON.parse(par_file_content)
-          if par_data['Children'] != nil
-            if !par_data['Children'].include?(iclass.downcase)
-              par_data['Children'] += [ iclass.downcase ]
-            end
-          else
-            par_data['Children'] = [ iclass.downcase ]
-          end
-          File.write("#{pclass}/#{par}.json", JSON.pretty_generate(par_data))
-        end
-      end
-      #if vars_data != nil && vars_data['ChemicalClasses'] && vars_data['ChemicalClasses'].include?(iclass.downcase)
-      if vars_data != nil && vars_data[vclass] != nil && vars_data[vclass].include?(iclass.downcase)
-        if vars_data['IsClass'] != true && vars_data[vclass].include?(iclass)
-          index_substances << { "Title": title, "MW": mw }
-          return nil
-        end
-        if index['First'].is_a?(String)
-          fstr = index['First']
-          index['First'] = {}
-          index['First']['Title'] = fstr
-        end
-        if title != nil
-          index['First']['Title'] = title
-        end
-        if abr != nil
-          index['First']['Abr'] = abr
-        end
-        if mw != nil
-          index['First']['MW'] = mw
-        end
-        #for par in mods_data['ChemicalClasses'].drop(1)
-        for par in mods_data[vclass].drop(1)
-          par_file_content = File.read("#{pclass}/#{par}.json")
-          par_data = JSON.parse(par_file_content)
-          if par_data['Children']
-            if !par_data['Children'].include?(iclass.downcase)
-              par_data['Children'] += [ iclass.downcase ]
-            end
-          else
-            par_data['Children'] = [ iclass.downcase ]
-          end
-          File.write("#{pclass}/#{par}.json", JSON.pretty_generate(par_data))
-        end
-      end
-
-    rescue => e
-      puts "An error occurred with file #{file_path}: #{e.message}"
+  if targets.empty? && name != nil
+    substance = records.find { |record| record["Title"].to_s.downcase == name.downcase }
+    for vclass in VCLASSES
+      targets += class_names(substance, vclass["JName"]).map { |iclass| [vclass, iclass] } if substance
     end
   end
-
-  index['Entries'] = index_substances
-  File.write("#{pclass}/#{iclass.downcase}.json", JSON.pretty_generate(index))
-
-  puts JSON.pretty_generate(index)
+  puts "Nothing to index for #{name}: not a class, and not a substance with classes" if targets.empty? && name != nil
+  for vclass, iclass in targets
+    index_class(vclass["Path"], vclass["JName"], iclass, records)
+  end
 end
