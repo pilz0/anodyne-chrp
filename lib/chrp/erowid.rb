@@ -141,7 +141,7 @@ def query_experiences(record)
       searches << abr
     end
   end
-  for abr in record["Aliases"]
+  for abr in Array(record["Aliases"])
     searches << abr
   end
   searches.uniq!

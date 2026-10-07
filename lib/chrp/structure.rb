@@ -83,6 +83,7 @@ def generate_structure(record, mpca, subst)
   end
 
   puts "#{mpc}" if !$options[:v].nil?
+  FileUtils.mkdir_p("structure")
   ret = system(mpc)
 
   if !ret
