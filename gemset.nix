@@ -129,10 +129,10 @@
     platforms = [];
     source = {
       remotes = ["https://rubygems.org"];
-      sha256 = "13nh4kd96d28dv3habjv2fiap30ccb73lz8mqx5d0834jl3fcvwm";
+      sha256 = "1x1zn43vs6g07ggpiv7h0qb89fyvs8kbsbadyhn8hrmpyn8jrrbs";
       type = "gem";
     };
-    version = "2.9.6";
+    version = "2.10.1";
   };
   svg_optimizer = {
     dependencies = ["nokogiri"];
