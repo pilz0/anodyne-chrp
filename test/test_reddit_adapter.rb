@@ -26,6 +26,7 @@ if reports && reports.length > 0
   end
 else
   puts "\nFAILED: No reports found. Check if assets/reddit_test.json exists."
+  exit 1
 end
 
 puts "\n--- Test Complete ---"
